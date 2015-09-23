@@ -476,7 +476,7 @@ int beargit_checkout(const char* arg, int new_branch) {
   read_string_from_file(".beargit/.current_branch", current_branch, BRANCHNAME_SIZE);
 
   // If not detached, update the current branch by storing the current HEAD into that branch's file...
-  if (strlen(current_branch)) { //Bug may be here
+  if (strlen(current_branch)) { 
     char current_branch_file[BRANCHNAME_SIZE+50];
     sprintf(current_branch_file, ".beargit/.branch_%s", current_branch);
     fs_cp(".beargit/.prev", current_branch_file);

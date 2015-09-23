@@ -135,12 +135,71 @@ void simple_log_test(void)
 
 void simple_merge_test(void) 
 {
+    // Test for merge in order to check that merge works correctly.
+    // It tests that a removed file that was present during a 
+    // previous commit is brought back after the file is merged
+    // using the previous commit ID. The test looks for the output
+    // "a.txt" added in the stdout file to see if the text was added.
+    // If the file was not brought back, this test will catch it. 
     struct commit* commit_list = NULL;
     int retvel;
     retval = beargit_init();
     CU_ASSERT(0==retval);
+    retval = beargit_add("a.txt");
+    CU_ASSERT(0==retval);
+    run_commit(&commit_list, "THIS IS BEAR TERRITORY!1");
+    retval = beargit_rm("a.txt");
+    CU_ASSERT(0==retval);
+    run_commit(&commit_list, "THIS IS BEAR TERRITORY!2");
+    retval = beargit_merge("test_branch");
+    CU_ASSERT(0==retval);
 
+    struct commit* cur_commit = commit_list;
+
+    const int LINE_SIZE = 512;
+    char line[LINE_SIZE];
+
+    FILE* fstdout = fopen("TEST_STDOUT", "r");
+    CU_ASSERT_PTR_NOT_NULL(fstdout);
+    int txt_added = 0;
+
+    while (fgets(line, LINE_SIZE, fstdout)) {
+      strtok(line, "\n"); //May not need this
+      if (strcmp(line, "a.txt added")) {
+        txt_added = 1;
+      }
+    }
+    fclose(fstdout);
+    CU_ASSERT_TRUE(txt_added);
+    free_commit_list(&commit_list);
 }
+
+void simple_reset_test(void)
+{
+    // Here is testing reset. Create a text file, a.txt, and add it and commit.
+    // Then, remove it and then commit again. Then, call reset. The file
+    // a.txt should be back. To check this, check the .index for a.txt. 
+    int retval;
+    struct commit* commit_list = NULL;
+    retval = beargit_init();
+    CU_ASSERT(0==retval);
+    FILE* a = fopen("a.txt","w");
+    fclose(a);
+    retval = beargit_add("a.txt");
+    run_commit(&commit_list, "THIS IS BEAR TERRITORY!1");
+    retval = beargit_rm("a.txt");
+    CU_ASSERT(retval == 0);
+    run_commit(&commit_list, "THIS IS BEAR TERRITORY!2");
+    beargit_reset(commit_list,"a.txt");
+    FILE* f = fopen(".beargit/.index","r");
+    char k[FILENAME_SIZE];
+    while (fgets(k, sizeof(k),f)) {
+      strtok(k,"\n");
+      if (strcmp(k,"a.txt") == 0) {
+        CU_ASSERT_STRING_EQUAL(k,"a.txt");
+      }
+    }
+ }
 
 /* The main() function for setting up and running the tests.
  * Returns a CUE_SUCCESS on successful running, another
@@ -150,6 +209,8 @@ int cunittester()
 {
    CU_pSuite pSuite = NULL;
    CU_pSuite pSuite2 = NULL;
+   CU_pSuite pSuite3 = NULL;
+   CU_pSuite pSuite4 = NULL;
 
    /* initialize the CUnit test registry */
    if (CUE_SUCCESS != CU_initialize_registry())
@@ -191,6 +252,19 @@ int cunittester()
 
    /* Add tests to the Suite #3 */
    if (NULL == CU_add_test(pSuite3, "Merge test", simple_merge_test))
+   {
+      CU_cleanup_registry();
+      return CU_get_error();
+   }
+
+   pSuite4 = CU_add_suite("Suite_4", init_suite, clean_suite);
+   if (NULL == pSuite4) {
+    CU_cleanup_registry();
+    return CU_get_error();
+   }
+
+   /* Add tests to the Suite #4 */
+   if (NULL == CU_add_test(pSuite4, "Reset test", simple_reset_test))
    {
       CU_cleanup_registry();
       return CU_get_error();
